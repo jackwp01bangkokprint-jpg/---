@@ -1,0 +1,6 @@
+{
+  "name": "WP-WRT Vehicle Log",
+  "description": "ระบบบันทึกการใช้รถสำหรับ WP-WRT เพื่อเบิกและคืนรถยนต์ ตรวจสอบสภาพรถ แบตเตอรี่ เลขไมล์ และบันทึกภาพถ่ายสภาพรถ 5 ด้าน",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "VehicleLog": {
+      "title": "VehicleLog",
+      "description": "Log record of a vehicle checkout and return",
+      "type": "object",
+      "properties": {
+        "userEmail": {
+          "type": "string",
+          "description": "Email of the user who checked out the vehicle"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Name of the user who checked out the vehicle"
+        },
+        "carId": {
+          "type": "string",
+          "description": "Unique identifier of the vehicle"
+        },
+        "carName": {
+          "type": "string",
+          "description": "Display name and registration of the vehicle"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "returned"],
+          "description": "Current status of the vehicle log"
+        },
+        "checkout": {
+          "type": "object",
+          "description": "Details of the vehicle checkout",
+          "properties": {
+            "date": { "type": "string" },
+            "time": { "type": "string" },
+            "battery": { "type": "integer" },
+            "mileage": { "type": "integer" },
+            "photos": { "type": "array" }
+          },
+          "required": ["date", "time", "battery", "mileage", "photos"]
+        },
+        "return": {
+          "type": "object",
+          "description": "Details of the vehicle return",
+          "properties": {
+            "date": { "type": "string" },
+            "time": { "type": "string" },
+            "battery": { "type": "integer" },
+            "mileage": { "type": "integer" },
+            "issues": { "type": "string" }
+          },
+          "required": ["date", "time", "battery", "mileage", "issues"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userEmail", "userName", "carId", "carName", "status", "checkout", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/vehicle_logs/{logId}": {
+      "schema": "VehicleLog",
+      "description": "Collection of vehicle checkout and return logs"
+    }
+  }
+}

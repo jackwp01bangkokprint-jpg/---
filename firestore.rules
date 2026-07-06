@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Primitive Definitions & Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(email) {
+      return isVerifiedUser() && request.auth.token.email == email;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidCheckout(checkout) {
+      return checkout is map &&
+             checkout.keys().hasAll(['date', 'time', 'battery', 'mileage', 'photos']) &&
+             checkout.keys().size() == 5 &&
+             checkout.date is string && checkout.date.size() <= 20 &&
+             checkout.time is string && checkout.time.size() <= 20 &&
+             checkout.battery is int && checkout.battery >= 0 && checkout.battery <= 100 &&
+             checkout.mileage is int && checkout.mileage >= 0 &&
+             checkout.photos is list && checkout.photos.size() <= 10;
+    }
+
+    function isValidReturn(ret) {
+      return ret is map &&
+             ret.keys().hasAll(['date', 'time', 'battery', 'mileage', 'issues']) &&
+             ret.keys().size() == 5 &&
+             ret.date is string && ret.date.size() <= 20 &&
+             ret.time is string && ret.time.size() <= 20 &&
+             ret.battery is int && ret.battery >= 0 && ret.battery <= 100 &&
+             ret.mileage is int && ret.mileage >= 0 &&
+             ret.issues is string && ret.issues.size() <= 1000;
+    }
+
+    function isValidVehicleLog(data) {
+      return data is map &&
+             data.keys().hasAll(['userEmail', 'userName', 'carId', 'carName', 'status', 'checkout', 'createdAt', 'updatedAt']) &&
+             (data.keys().size() == 8 || (data.keys().size() == 9 && 'return' in data)) &&
+             data.userEmail is string && data.userEmail.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 128 &&
+             data.carId is string && data.carId.size() <= 64 &&
+             data.carName is string && data.carName.size() <= 256 &&
+             data.status is string && (data.status == 'active' || data.status == 'returned') &&
+             isValidCheckout(data.checkout) &&
+             (!('return' in data) || data.return == null || isValidReturn(data.return));
+    }
+
+    // 2. Vehicle Logs Path Variable Hardening and Master Gates
+    match /vehicle_logs/{logId} {
+      allow get, list: if isSignedIn() && resource.data.userEmail == request.auth.token.email;
+
+      allow create: if isVerifiedUser() &&
+                    isValidId(logId) &&
+                    isValidVehicleLog(incoming()) &&
+                    incoming().userEmail == request.auth.token.email &&
+                    incoming().status == 'active' &&
+                    incoming().createdAt == request.time &&
+                    incoming().updatedAt == request.time;
+
+      // 4. Action-Based Tiered Updates & Terminal State Locking
+      allow update: if isVerifiedUser() &&
+                    isValidId(logId) &&
+                    isValidVehicleLog(incoming()) &&
+                    existing().userEmail == request.auth.token.email &&
+                    incoming().userEmail == request.auth.token.email &&
+                    existing().status == 'active' &&
+                    incoming().updatedAt == request.time &&
+                    // Action: Return the vehicle (transition active -> returned)
+                    incoming().status == 'returned' &&
+                    'return' in incoming() && incoming().return != null &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'return', 'updatedAt']);
+
+      allow delete: if false; // Audit Lock: Never allow deletions by clients
+    }
+  }
+}
